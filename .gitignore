@@ -1,0 +1,7 @@
+bin/
+obj/
+lib/
+.vs/
+*.nupkg
+launchSettings.json
+/output/
