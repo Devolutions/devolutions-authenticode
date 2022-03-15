@@ -1,0 +1,33 @@
+name: package
+on: workflow_dispatch
+jobs:
+  build:
+    name: build
+    runs-on: windows-2022
+
+    steps:
+      - name: Check out ${{ github.repository }}
+        uses: actions/checkout@v2
+
+      - name: Build Nuget package
+        shell: pwsh
+        run: |
+          & dotnet build ".\dotnet\Devolutions.Authenticode" -f netstandard2.0 -c Release -o ".\output"
+
+      - name: Upload Nuget package
+        uses: actions/upload-artifact@v2
+        with:
+          name: nuget-package
+          path: output/*.nupkg
+
+      - name: Build PowerShell module
+        shell: pwsh
+        run: |
+          .\PowerShell\build.ps1
+          .\PowerShell\package.ps1
+
+      - name: Upload PowerShell module
+        uses: actions/upload-artifact@v2
+        with:
+          name: pwsh-module
+          path: PowerShell/*.nupkg

@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="https://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="https://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Reason_DoNotRun" xml:space="preserve">
+    <value>File {0} cannot be loaded because you opted not to run this software now.</value>
+  </data>
+  <data name="Reason_NeverRun" xml:space="preserve">
+    <value>File {0} cannot be loaded because you opted never to run software from this publisher.</value>
+  </data>
+  <data name="Reason_NotTrusted" xml:space="preserve">
+    <value>File {0} is published by {1}. This publisher is explicitly not trusted on your system. The script will not run on the system. For more information, run the command "get-help about_signing".</value>
+  </data>
+  <data name="Reason_RestrictedMode" xml:space="preserve">
+    <value>File {0} cannot be loaded because running scripts is disabled on this system. For more information, see about_Execution_Policies at https://go.microsoft.com/fwlink/?LinkID=135170.</value>
+  </data>
+  <data name="Reason_Unknown" xml:space="preserve">
+    <value>File {0} cannot be loaded. {1}.</value>
+  </data>
+  <data name="Reason_DisallowedBySafer" xml:space="preserve">
+    <value>File {0} cannot be loaded because its operation is blocked by software restriction policies, such as those created by using Group Policy.</value>
+  </data>
+  <data name="Reason_FileContentUnavailable" xml:space="preserve">
+    <value>File {0} cannot be loaded because its content could not be read.</value>
+  </data>
+  <data name="CertNotGoodForSigning" xml:space="preserve">
+    <value>Cannot sign code. The specified certificate is not suitable for code signing.</value>
+  </data>
+  <data name="TimeStampUrlRequired" xml:space="preserve">
+    <value>Cannot sign code. The TimeStamp server URL must be fully qualified, and in the format http://&lt;server url&gt;.</value>
+  </data>
+  <data name="InvalidHashAlgorithm" xml:space="preserve">
+    <value>Cannot sign code. The hash algorithm is not supported.</value>
+  </data>
+  <data name="AuthenticodePromptCaption" xml:space="preserve">
+    <value>Do you want to run software from this untrusted publisher?</value>
+  </data>
+  <data name="AuthenticodePromptText" xml:space="preserve">
+    <value>File {0} is published by {1} and is not trusted on your system. Only run scripts from trusted publishers.</value>
+  </data>
+  <data name="AuthenticodePromptText_UnknownPublisher" xml:space="preserve">
+    <value>Software {0} is published by an unknown publisher. It is recommended that you do not run this software.</value>
+  </data>
+  <data name="RemoteFilePromptCaption" xml:space="preserve">
+    <value>Security warning</value>
+  </data>
+  <data name="RemoteFilePromptText" xml:space="preserve">
+    <value>Run only scripts that you trust. While scripts from the internet can be useful, this script can potentially harm your computer. If you trust this script, use the Unblock-File cmdlet to allow the script to run without this warning message. Do you want to run {0}?</value>
+  </data>
+  <data name="Choice_NeverRun" xml:space="preserve">
+    <value>Ne&amp;ver run</value>
+  </data>
+  <data name="Choice_NeverRun_Help" xml:space="preserve">
+    <value>Do not run the script from this publisher now, and do not prompt me to run this script in future. Future attempts to run this script will result in a silent failure.</value>
+  </data>
+  <data name="Choice_DoNotRun" xml:space="preserve">
+    <value>&amp;Do not run</value>
+  </data>
+  <data name="Choice_DoNotRun_Help" xml:space="preserve">
+    <value>Do not run the script from this publisher now, and continue to prompt me to run this script in the future.</value>
+  </data>
+  <data name="Choice_RunOnce" xml:space="preserve">
+    <value>&amp;Run once</value>
+  </data>
+  <data name="Choice_RunOnce_Help" xml:space="preserve">
+    <value>Run the script from this publisher now, and continue to prompt me to run this script in the future.</value>
+  </data>
+  <data name="Choice_AlwaysRun" xml:space="preserve">
+    <value>&amp;Always run</value>
+  </data>
+  <data name="Choice_AlwaysRun_Help" xml:space="preserve">
+    <value>Run the script from this publisher now, and do not prompt me to run this script in the future.</value>
+  </data>
+  <data name="Choice_Suspend" xml:space="preserve">
+    <value>&amp;Suspend</value>
+  </data>
+  <data name="Choice_Suspend_Help" xml:space="preserve">
+    <value>Pause the current pipeline and return to the command prompt. Type exit to resume operation when you are done.</value>
+  </data>
+  <data name="MshSignature_Valid" xml:space="preserve">
+    <value>Signature verified.</value>
+  </data>
+  <data name="MshSignature_NotSigned" xml:space="preserve">
+    <value>The file {0} is not digitally signed. You cannot run this script on the current system. For more information about running scripts and setting execution policy, see about_Execution_Policies at https://go.microsoft.com/fwlink/?LinkID=135170</value>
+  </data>
+  <data name="MshSignature_HashMismatch" xml:space="preserve">
+    <value>The contents of file {0} might have been changed by an unauthorized user or process, because the hash of the file does not match the hash stored in the digital signature. The script cannot run on the specified system. For more information, run Get-Help about_Signing.</value>
+  </data>
+  <data name="MshSignature_NotTrusted" xml:space="preserve">
+    <value>File {0} is signed but the signer is not trusted on this system.</value>
+  </data>
+  <data name="MshSignature_NotSupportedFileFormat" xml:space="preserve">
+    <value>Cannot sign the file because the system does not support signing operations on {0} files.</value>
+  </data>
+  <data name="MshSignature_NotSupportedFileFormat_NoExtension" xml:space="preserve">
+    <value>Cannot sign the file because the system does not support signing operations on files that do not have a file name extension.</value>
+  </data>
+  <data name="MshSignature_Incompatible" xml:space="preserve">
+    <value>The signature cannot be verified because it is incompatible with the current system.</value>
+  </data>
+  <data name="MshSignature_Incompatible_HashAlgorithm" xml:space="preserve">
+    <value>The signature cannot be verified because it is incompatible with the current system. The hash algorithm is not valid.</value>
+  </data>
+  <data name="PowerShell_CertNotGoodForSigning" xml:space="preserve">
+    <value>Cannot sign code. The specified certificate is not suitable for code signing.</value>
+  </data>
+  <data name="PowerShell_TimeStampUrlRequired" xml:space="preserve">
+    <value>Cannot sign code.  The TimeStamp server URL must be fully qualified in the form of http://&lt;server url&gt;</value>
+  </data>
+  <data name="PowerShell_CannotRetrieveFromContainer" xml:space="preserve">
+    <value>The Get-AuthenticodeSignature cmdlet does not support directories. Supply a path to a file and retry.</value>
+  </data>
+  <data name="PowerShell_FileNotFound" xml:space="preserve">
+    <value>File {0} was not found.</value>
+  </data>
+</root>
