@@ -13,75 +13,12 @@ using Devolutions.Authenticode;
 namespace Devolutions.Authenticode.PowerShell
 {
     /// <summary>
-    /// FileHashInfo class contains information about a file hash.
+    /// This class implements Export-ZipAuthenticodeSignature
     /// </summary>
-    public class FileHashInfo
-    {
-        /// <summary>
-        /// Hash algorithm name.
-        /// </summary>
-        public string Algorithm { get; set; }
-
-        /// <summary>
-        /// Hash value.
-        /// </summary>
-        public string Hash { get; set; }
-
-        /// <summary>
-        /// File path.
-        /// </summary>
-        public string Path { get; set; }
-
-        public string ToDigestString()
-        {
-            return (this.Algorithm + ":" + this.Hash).ToLower();
-        }
-    }
-
-    /// <summary>
-    /// This class implements Get-ZipAuthenticodeFileHash.
-    /// </summary>
-    [Cmdlet(VerbsCommon.Get, "ZipAuthenticodeFileHash", DefaultParameterSetName = PathParameterSet)]
+    [Cmdlet(VerbsData.Export, "ZipAuthenticodeSignature", DefaultParameterSetName = PathParameterSet)]
     [OutputType(typeof(FileHashInfo))]
-    public class GetZipAuthenticodeFileHashCommand : PSCmdlet
+    public class ExportZipAuthenticodeSignatureCommand : PSCmdlet
     {
-        /// <summary>
-        /// Algorithm parameter.
-        /// The hash algorithm name: "SHA256".
-        /// </summary>
-        /// <value></value>
-        [Parameter(Position = 1)]
-        [ValidateSet(HashAlgorithmNames.SHA256)]
-        public string Algorithm
-        {
-            get
-            {
-                return _Algorithm;
-            }
-
-            set
-            {
-                // A hash algorithm name is case sensitive
-                // and always must be in upper case
-                _Algorithm = value.ToUpper();
-            }
-        }
-
-        private string _Algorithm = HashAlgorithmNames.SHA256;
-
-        /// <summary>
-        /// Hash algorithm is used.
-        /// </summary>
-        protected HashAlgorithm hasher;
-
-        /// <summary>
-        /// Hash algorithm names.
-        /// </summary>
-        internal static class HashAlgorithmNames
-        {
-            public const string SHA256 = "SHA256";
-        }
-
         /// <summary>
         /// Path parameter.
         /// The paths of the files to calculate hash values.
@@ -191,10 +128,7 @@ namespace Devolutions.Authenticode.PowerShell
 
             foreach (string path in pathsToProcess)
             {
-                if (ComputeFileHash(path, out string hash))
-                {
-                    WriteHashResult(Algorithm, hash, path);
-                }
+                ProcessFile(path);
             }
         }
 
@@ -216,17 +150,16 @@ namespace Devolutions.Authenticode.PowerShell
         /// <param name="path">Path to file which will be hashed.</param>
         /// <param name="hash">Will contain the hash of the file content.</param>
         /// <returns>Boolean value indicating whether the hash calculation succeeded or failed.</returns>
-        private bool ComputeFileHash(string path, out string hash)
+        private bool ProcessFile(string path)
         {
-            byte[] bytehash = null;
-
-            hash = null;
+            bool success = false;
 
             try
             {
+                string sigFile = path + ".sig.ps1";
                 ZipFile zipFile = new ZipFile(path);
-                bytehash = zipFile.ComputeHash();
-                hash = BitConverter.ToString(bytehash).Replace("-", string.Empty);
+                zipFile.ExportSignatureFile(path);
+                success = true;
             }
             catch (FileNotFoundException ex)
             {
@@ -260,19 +193,7 @@ namespace Devolutions.Authenticode.PowerShell
 
             }
 
-            return hash != null;
-        }
-
-        /// <summary>
-        /// Create FileHashInfo object and output it.
-        /// </summary>
-        private void WriteHashResult(string Algorithm, string hash, string path)
-        {
-            FileHashInfo result = new();
-            result.Algorithm = Algorithm;
-            result.Hash = hash;
-            result.Path = path;
-            WriteObject(result);
+            return success;
         }
 
         /// <summary>

@@ -73,7 +73,8 @@
     CmdletsToExport = @(
         'Get-ZipAuthenticodeFileHash',
         'Set-ZipAuthenticodeSignature',
-        'Get-ZipAuthenticodeSignature')
+        'Get-ZipAuthenticodeSignature',
+        'Export-ZipAuthenticodeSignature')
     
     # Variables to export from this module
     VariablesToExport = @()
