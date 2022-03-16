@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft Corporation.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System;
@@ -13,11 +13,11 @@ using Devolutions.Authenticode;
 namespace Devolutions.Authenticode.PowerShell
 {
     /// <summary>
-    /// This class implements Export-ZipAuthenticodeSignature
+    /// This class implements Import-ZipAuthenticodeSignature
     /// </summary>
-    [Cmdlet(VerbsData.Export, "ZipAuthenticodeSignature", DefaultParameterSetName = PathParameterSet)]
+    [Cmdlet(VerbsData.Import, "ZipAuthenticodeSignature", DefaultParameterSetName = PathParameterSet)]
     [OutputType(typeof(FileHashInfo))]
-    public class ExportZipAuthenticodeSignatureCommand : PSCmdlet
+    public class ImportZipAuthenticodeSignatureCommand : PSCmdlet
     {
         /// <summary>
         /// Path parameter.
@@ -145,10 +145,9 @@ namespace Devolutions.Authenticode.PowerShell
         }
 
         /// <summary>
-        /// Read the file and calculate the hash.
+        /// Import zip authenticode signature for a given file
         /// </summary>
-        /// <param name="path">Path to file which will be hashed.</param>
-        /// <param name="hash">Will contain the hash of the file content.</param>
+        /// <param name="path">Path to file</param>
         /// <returns>Boolean value indicating whether the hash calculation succeeded or failed.</returns>
         private bool ProcessFile(string path)
         {
@@ -156,9 +155,13 @@ namespace Devolutions.Authenticode.PowerShell
 
             try
             {
+                string sigDigest = null;
+                string sigBlock = null;
                 string sigFile = path + ".sig.ps1";
+                string sigCommentLine = ZipFile.LoadSignatureFile(sigFile, out string digest, out string block);
                 ZipFile zipFile = new ZipFile(path);
-                zipFile.ExportSignatureFile(path);
+                zipFile.SetFileComment(sigCommentLine);
+                zipFile.Save(path);
                 success = true;
             }
             catch (FileNotFoundException ex)

@@ -350,3 +350,38 @@ Compute the zip digest hash on the zip file, and then compare the value:
 (Get-ZipAuthenticodeFileHash .\test.zip).ToDigestString()
 sha256:4667433dd582f5955e7f6355cbb2a39c5e95cbccc894c1ffaa4286f1acfed0b7
 ```
+
+## Signing using signtool
+
+Export the zip file digest string to a .sig.ps1 text file (UTF-8 encoding, no BOM, and no line ending characters):
+
+```powershell
+$ZipDigestString = (Get-ZipAuthenticodeFileHash .\test.zip).ToDigestString()
+[System.IO.File]::WriteAllBytes(".\test.zip.sig.ps1", [System.Text.Encoding]::UTF8.GetBytes($ZipDigestString))
+```
+
+Sign the .sig.ps1 text file using signtool as if it were a PowerShell script:
+
+```powershell
+$cert = @(Get-ChildItem cert:\CurrentUser\My -CodeSigning | Where-Object { $_.Subject -eq "CN=ZipAuthenticode" })[0]
+signtool sign /fd SHA256 /t 'http://timestamp.digicert.com' /sha1 $cert.Thumbprint /v test.zip.sig.ps1
+
+The following certificate was selected:
+    Issued to: ZipAuthenticode
+    Issued by: ZipAuthenticode
+    Expires:   Sun Mar 12 16:30:04 2023
+    SHA1 hash: 6256DFDA7528DF20730950A4D9DC0727CE7EA404
+
+Done Adding Additional Store
+Successfully signed: test.zip.sig.ps1
+
+Number of files successfully Signed: 1
+Number of warnings: 0
+Number of errors: 0
+```
+
+Import the signature from the .sig.ps1 file into the zip file:
+
+```powershell
+Import-ZipAuthenticodeSignature .\test.zip
+```
