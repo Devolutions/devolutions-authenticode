@@ -3,6 +3,7 @@
 
 using System;
 using System.IO;
+using System.Text;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Management.Automation;
@@ -13,37 +14,27 @@ using Devolutions.Authenticode;
 namespace Devolutions.Authenticode.PowerShell
 {
     /// <summary>
-    /// FileHashInfo class contains information about a file hash.
+    /// DigestInfo class contains information about a file hash.
     /// </summary>
-    public class FileHashInfo
+    public class DigestInfo
     {
         /// <summary>
-        /// Hash algorithm name.
+        /// Digest string.
         /// </summary>
-        public string Algorithm { get; set; }
-
-        /// <summary>
-        /// Hash value.
-        /// </summary>
-        public string Hash { get; set; }
+        public string Digest { get; set; }
 
         /// <summary>
         /// File path.
         /// </summary>
         public string Path { get; set; }
-
-        public string ToDigestString()
-        {
-            return (this.Algorithm + ":" + this.Hash).ToLower();
-        }
     }
 
     /// <summary>
-    /// This class implements Get-ZipAuthenticodeFileHash.
+    /// This class implements Get-ZipAuthenticodeDigest.
     /// </summary>
-    [Cmdlet(VerbsCommon.Get, "ZipAuthenticodeFileHash", DefaultParameterSetName = PathParameterSet)]
-    [OutputType(typeof(FileHashInfo))]
-    public class GetZipAuthenticodeFileHashCommand : PSCmdlet
+    [Cmdlet(VerbsCommon.Get, "ZipAuthenticodeDigest", DefaultParameterSetName = PathParameterSet)]
+    [OutputType(typeof(DigestInfo))]
+    public class GetZipAuthenticodeDigestCommand : PSCmdlet
     {
         /// <summary>
         /// Algorithm parameter.
@@ -68,11 +59,6 @@ namespace Devolutions.Authenticode.PowerShell
         }
 
         private string _Algorithm = HashAlgorithmNames.SHA256;
-
-        /// <summary>
-        /// Hash algorithm is used.
-        /// </summary>
-        protected HashAlgorithm hasher;
 
         /// <summary>
         /// Hash algorithm names.
@@ -134,6 +120,18 @@ namespace Devolutions.Authenticode.PowerShell
         public Stream InputStream { get; set; }
 
         /// <summary>
+        /// Export digest string to signature file.
+        /// </summary>
+        /// <value></value>
+        [Parameter(Mandatory = false)]
+        public SwitchParameter Export
+        {
+            get { return _export; }
+            set { _export = value; }
+        }
+        private bool _export = false;
+
+        /// <summary>
         /// BeginProcessing() override.
         /// This is for hash function init.
         /// </summary>
@@ -191,9 +189,9 @@ namespace Devolutions.Authenticode.PowerShell
 
             foreach (string path in pathsToProcess)
             {
-                if (ComputeFileHash(path, out string hash))
+                if (ComputeDigest(path, out string digest))
                 {
-                    WriteHashResult(Algorithm, hash, path);
+                    WriteDigestResult(digest, path);
                 }
             }
         }
@@ -216,17 +214,20 @@ namespace Devolutions.Authenticode.PowerShell
         /// <param name="path">Path to file which will be hashed.</param>
         /// <param name="hash">Will contain the hash of the file content.</param>
         /// <returns>Boolean value indicating whether the hash calculation succeeded or failed.</returns>
-        private bool ComputeFileHash(string path, out string hash)
+        private bool ComputeDigest(string path, out string digest)
         {
-            byte[] bytehash = null;
-
-            hash = null;
+            digest = null;
 
             try
             {
                 ZipFile zipFile = new ZipFile(path);
-                bytehash = zipFile.ComputeHash();
-                hash = BitConverter.ToString(bytehash).Replace("-", string.Empty);
+                digest = zipFile.GetDigestString();
+
+                if (_export)
+                {
+                    string sigFile = path + ".sig.ps1";
+                    File.WriteAllBytes(sigFile, Encoding.UTF8.GetBytes(digest));
+                }
             }
             catch (FileNotFoundException ex)
             {
@@ -260,17 +261,16 @@ namespace Devolutions.Authenticode.PowerShell
 
             }
 
-            return hash != null;
+            return digest != null;
         }
 
         /// <summary>
-        /// Create FileHashInfo object and output it.
+        /// Create DigestInfo object and output it.
         /// </summary>
-        private void WriteHashResult(string Algorithm, string hash, string path)
+        private void WriteDigestResult(string digest, string path)
         {
-            FileHashInfo result = new();
-            result.Algorithm = Algorithm;
-            result.Hash = hash;
+            DigestInfo result = new();
+            result.Digest = digest;
             result.Path = path;
             WriteObject(result);
         }

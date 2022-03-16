@@ -16,7 +16,6 @@ namespace Devolutions.Authenticode.PowerShell
     /// This class implements Import-ZipAuthenticodeSignature
     /// </summary>
     [Cmdlet(VerbsData.Import, "ZipAuthenticodeSignature", DefaultParameterSetName = PathParameterSet)]
-    [OutputType(typeof(FileHashInfo))]
     public class ImportZipAuthenticodeSignatureCommand : PSCmdlet
     {
         /// <summary>

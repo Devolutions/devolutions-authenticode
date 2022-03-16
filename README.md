@@ -356,11 +356,14 @@ sha256:4667433dd582f5955e7f6355cbb2a39c5e95cbccc894c1ffaa4286f1acfed0b7
 Export the zip file digest string to a .sig.ps1 text file (UTF-8 encoding, no BOM, and no line ending characters):
 
 ```powershell
-$ZipDigestString = (Get-ZipAuthenticodeFileHash .\test.zip).ToDigestString()
-[System.IO.File]::WriteAllBytes(".\test.zip.sig.ps1", [System.Text.Encoding]::UTF8.GetBytes($ZipDigestString))
+Get-ZipAuthenticodeDigest .\test.zip -Export
+
+Digest                                                                  Path
+------                                                                  ----
+sha256:4667433dd582f5955e7f6355cbb2a39c5e95cbccc894c1ffaa4286f1acfed0b7 test.zip
 ```
 
-Sign the .sig.ps1 text file using signtool as if it were a PowerShell script:
+Sign test.zip.sig.ps1 using signtool as if it were a PowerShell script:
 
 ```powershell
 $cert = @(Get-ChildItem cert:\CurrentUser\My -CodeSigning | Where-Object { $_.Subject -eq "CN=ZipAuthenticode" })[0]
@@ -383,5 +386,5 @@ Number of errors: 0
 Import the signature from the .sig.ps1 file into the zip file:
 
 ```powershell
-Import-ZipAuthenticodeSignature .\test.zip
+Import-ZipAuthenticodeSignature .\test.zip -Remove
 ```
