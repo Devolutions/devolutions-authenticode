@@ -71,6 +71,18 @@ namespace Devolutions.Authenticode.PowerShell
         public Stream InputStream { get; set; }
 
         /// <summary>
+        /// Remove input file after import operation
+        /// </summary>
+        /// <value></value>
+        [Parameter(Mandatory = false)]
+        public SwitchParameter Remove
+        {
+            get { return _remove; }
+            set { _remove = value; }
+        }
+        private bool _remove = false;
+
+        /// <summary>
         /// BeginProcessing() override.
         /// This is for hash function init.
         /// </summary>
@@ -158,10 +170,17 @@ namespace Devolutions.Authenticode.PowerShell
                 string sigDigest = null;
                 string sigBlock = null;
                 string sigFile = path + ".sig.ps1";
+
                 string sigCommentLine = ZipFile.LoadSignatureFile(sigFile, out string digest, out string block);
                 ZipFile zipFile = new ZipFile(path);
                 zipFile.SetFileComment(sigCommentLine);
                 zipFile.Save(path);
+
+                if (_remove)
+                {
+                    File.Delete(sigFile);
+                }
+
                 success = true;
             }
             catch (FileNotFoundException ex)
