@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft Corporation.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System;
@@ -13,75 +13,11 @@ using Devolutions.Authenticode;
 namespace Devolutions.Authenticode.PowerShell
 {
     /// <summary>
-    /// FileHashInfo class contains information about a file hash.
+    /// This class implements Import-ZipAuthenticodeSignature
     /// </summary>
-    public class FileHashInfo
+    [Cmdlet(VerbsData.Import, "ZipAuthenticodeSignature", DefaultParameterSetName = PathParameterSet)]
+    public class ImportZipAuthenticodeSignatureCommand : PSCmdlet
     {
-        /// <summary>
-        /// Hash algorithm name.
-        /// </summary>
-        public string Algorithm { get; set; }
-
-        /// <summary>
-        /// Hash value.
-        /// </summary>
-        public string Hash { get; set; }
-
-        /// <summary>
-        /// File path.
-        /// </summary>
-        public string Path { get; set; }
-
-        public string ToDigestString()
-        {
-            return (this.Algorithm + ":" + this.Hash).ToLower();
-        }
-    }
-
-    /// <summary>
-    /// This class implements Get-ZipAuthenticodeHash.
-    /// </summary>
-    [Cmdlet(VerbsCommon.Get, "ZipAuthenticodeFileHash", DefaultParameterSetName = PathParameterSet)]
-    [OutputType(typeof(FileHashInfo))]
-    public class GetZipAuthenticodeFileHashCommand : PSCmdlet
-    {
-        /// <summary>
-        /// Algorithm parameter.
-        /// The hash algorithm name: "SHA256".
-        /// </summary>
-        /// <value></value>
-        [Parameter(Position = 1)]
-        [ValidateSet(HashAlgorithmNames.SHA256)]
-        public string Algorithm
-        {
-            get
-            {
-                return _Algorithm;
-            }
-
-            set
-            {
-                // A hash algorithm name is case sensitive
-                // and always must be in upper case
-                _Algorithm = value.ToUpper();
-            }
-        }
-
-        private string _Algorithm = HashAlgorithmNames.SHA256;
-
-        /// <summary>
-        /// Hash algorithm is used.
-        /// </summary>
-        protected HashAlgorithm hasher;
-
-        /// <summary>
-        /// Hash algorithm names.
-        /// </summary>
-        internal static class HashAlgorithmNames
-        {
-            public const string SHA256 = "SHA256";
-        }
-
         /// <summary>
         /// Path parameter.
         /// The paths of the files to calculate hash values.
@@ -132,6 +68,18 @@ namespace Devolutions.Authenticode.PowerShell
         /// <value></value>
         [Parameter(Mandatory = true, ParameterSetName = StreamParameterSet, Position = 0)]
         public Stream InputStream { get; set; }
+
+        /// <summary>
+        /// Remove input file after import operation
+        /// </summary>
+        /// <value></value>
+        [Parameter(Mandatory = false)]
+        public SwitchParameter Remove
+        {
+            get { return _remove; }
+            set { _remove = value; }
+        }
+        private bool _remove = false;
 
         /// <summary>
         /// BeginProcessing() override.
@@ -191,10 +139,7 @@ namespace Devolutions.Authenticode.PowerShell
 
             foreach (string path in pathsToProcess)
             {
-                if (ComputeFileHash(path, out string hash))
-                {
-                    WriteHashResult(Algorithm, hash, path);
-                }
+                ProcessFile(path);
             }
         }
 
@@ -206,33 +151,36 @@ namespace Devolutions.Authenticode.PowerShell
         {
             if (ParameterSetName == StreamParameterSet)
             {
-                byte[] bytehash = null;
-                string hash = null;
 
-                bytehash = hasher.ComputeHash(InputStream);
-
-                hash = BitConverter.ToString(bytehash).Replace("-", string.Empty);
-                WriteHashResult(Algorithm, hash, string.Empty);
             }
         }
 
         /// <summary>
-        /// Read the file and calculate the hash.
+        /// Import zip authenticode signature for a given file
         /// </summary>
-        /// <param name="path">Path to file which will be hashed.</param>
-        /// <param name="hash">Will contain the hash of the file content.</param>
+        /// <param name="path">Path to file</param>
         /// <returns>Boolean value indicating whether the hash calculation succeeded or failed.</returns>
-        private bool ComputeFileHash(string path, out string hash)
+        private bool ProcessFile(string path)
         {
-            byte[] bytehash = null;
-
-            hash = null;
+            bool success = false;
 
             try
             {
+                string sigDigest = null;
+                string sigBlock = null;
+                string sigFile = path + ".sig.ps1";
+
+                string sigCommentLine = ZipFile.LoadSignatureFile(sigFile, out string digest, out string block);
                 ZipFile zipFile = new ZipFile(path);
-                bytehash = zipFile.ComputeHash();
-                hash = BitConverter.ToString(bytehash).Replace("-", string.Empty);
+                zipFile.SetFileComment(sigCommentLine);
+                zipFile.Save(path);
+
+                if (_remove)
+                {
+                    File.Delete(sigFile);
+                }
+
+                success = true;
             }
             catch (FileNotFoundException ex)
             {
@@ -266,19 +214,7 @@ namespace Devolutions.Authenticode.PowerShell
 
             }
 
-            return hash != null;
-        }
-
-        /// <summary>
-        /// Create FileHashInfo object and output it.
-        /// </summary>
-        private void WriteHashResult(string Algorithm, string hash, string path)
-        {
-            FileHashInfo result = new();
-            result.Algorithm = Algorithm;
-            result.Hash = hash;
-            result.Path = path;
-            WriteObject(result);
+            return success;
         }
 
         /// <summary>

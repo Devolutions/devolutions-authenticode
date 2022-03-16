@@ -287,3 +287,104 @@ ZipAuthenticode=sha256:4667433dd582f5955e7f6355cbb2a39c5e95cbccc894c1ffaa4286f1a
 ```
 
 To validate the signature, we extract lines beginning with "ZipAuthenticode" from the zip file comment field, and reconstruct original script formatting. We then compute the zip file digest excluding the comment field itself, compare it with the digest embedded in the signature, and validate the signature file as a PowerShell script. If the digest strings match and the signature on the script is valid, then the zip file is correctly signed.
+
+## Validating using signtool
+
+Extract the signature script file from the zip file:
+
+```powershell
+Export-ZipAuthenticodeSignature .\test.zip
+```
+
+Validate the signature script file using signtool:
+
+```powershell
+signtool verify /pa /v test.zip.sig.ps1
+
+Verifying: .\test.zip.sig.ps1
+
+Signature Index: 0 (Primary Signature)
+Hash of file (sha1): 45B60E63B237F3265E0682B1D240B722AA7DBD1E
+
+Signing Certificate Chain:
+    Issued to: ZipAuthenticode
+    Issued by: ZipAuthenticode
+    Expires:   Sun Mar 12 16:30:04 2023
+    SHA1 hash: 6256DFDA7528DF20730950A4D9DC0727CE7EA404
+
+The signature is timestamped: Tue Mar 15 13:25:03 2022
+Timestamp Verified by:
+    Issued to: DigiCert Assured ID Root CA
+    Issued by: DigiCert Assured ID Root CA
+    Expires:   Sun Nov 09 20:00:00 2031
+    SHA1 hash: 0563B8630D62D75ABBC8AB1E4BDFB5A899B24D43
+
+        Issued to: DigiCert SHA2 Assured ID Timestamping CA
+        Issued by: DigiCert Assured ID Root CA
+        Expires:   Tue Jan 07 08:00:00 2031
+        SHA1 hash: 3BA63A6E4841355772DEBEF9CDCF4D5AF353A297
+
+            Issued to: DigiCert Timestamp 2021
+            Issued by: DigiCert SHA2 Assured ID Timestamping CA
+            Expires:   Sun Jan 05 20:00:00 2031
+            SHA1 hash: E1D782A8E191BEEF6BCA1691B5AAB494A6249BF3
+
+
+Successfully verified: .\test.zip.sig.ps1
+
+Number of files successfully Verified: 1
+Number of warnings: 0
+Number of errors: 0
+```
+
+Extract the zip digest string from the signature file:
+
+```powershell
+(Get-Content .\test.zip.sig.ps1)[0]
+sha256:4667433dd582f5955e7f6355cbb2a39c5e95cbccc894c1ffaa4286f1acfed0b7
+```
+
+Compute the zip digest hash on the zip file, and then compare the value:
+
+```powershell
+(Get-ZipAuthenticodeFileHash .\test.zip).ToDigestString()
+sha256:4667433dd582f5955e7f6355cbb2a39c5e95cbccc894c1ffaa4286f1acfed0b7
+```
+
+## Signing using signtool
+
+Export the zip file digest string to a .sig.ps1 text file (UTF-8 encoding, no BOM, and no line ending characters):
+
+```powershell
+Get-ZipAuthenticodeDigest .\test.zip -Export
+
+Digest                                                                  Path
+------                                                                  ----
+sha256:4667433dd582f5955e7f6355cbb2a39c5e95cbccc894c1ffaa4286f1acfed0b7 test.zip
+```
+
+Sign test.zip.sig.ps1 using signtool as if it were a PowerShell script:
+
+```powershell
+$cert = @(Get-ChildItem cert:\CurrentUser\My -CodeSigning | Where-Object { $_.Subject -eq "CN=ZipAuthenticode" })[0]
+signtool sign /fd SHA256 /t 'http://timestamp.digicert.com' /sha1 $cert.Thumbprint /v test.zip.sig.ps1
+
+The following certificate was selected:
+    Issued to: ZipAuthenticode
+    Issued by: ZipAuthenticode
+    Expires:   Sun Mar 12 16:30:04 2023
+    SHA1 hash: 6256DFDA7528DF20730950A4D9DC0727CE7EA404
+
+Done Adding Additional Store
+Successfully signed: test.zip.sig.ps1
+
+Number of files successfully Signed: 1
+Number of warnings: 0
+Number of errors: 0
+```
+
+Import the signature from the .sig.ps1 file into the zip file:
+
+```powershell
+Import-ZipAuthenticodeSignature .\test.zip -Remove
+```
