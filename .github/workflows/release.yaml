@@ -34,9 +34,8 @@ jobs:
           $DryRun = [System.Convert]::ToBoolean('${{ github.event.inputs.dry-run }}')
           $PackageFile = (Get-ChildItem Devolutions.Authenticode.*.nupkg).FullName
           $NugetApiKey = '${{ secrets.PS_GALLERY_NUGET_API_KEY }}'
-          $PSRepoUrl = 'https://www.powershellgallery.com/api/v2'
-          & nuget.exe push $PackageFile $NugetApiKey -Source $PSRepoUrl
-
+          $NugetPushUrl = 'https://www.powershellgallery.com/api/v2/package'
+          
           if (-Not $DryRun) {
-            & nuget.exe push $PackageFile $NugetApiKey -Source $PSRepoUrl
+            & nuget.exe push $PackageFile $NugetApiKey -Source $NugetPushUrl
           }
