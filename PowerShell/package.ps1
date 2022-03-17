@@ -61,3 +61,6 @@ function New-ModulePackage
 }
 
 New-ModulePackage "$PSScriptRoot\Devolutions.Authenticode" "$PSScriptRoot"
+
+$PSModuleZipFile = (Get-ChildItem "$PSScriptRoot\Devolutions.Authenticode*.nupkg").FullName -Replace ".nupkg", ".ps.zip"
+Compress-Archive -Path "$PSScriptRoot\Devolutions.Authenticode" -Destination $PSModuleZipFile
