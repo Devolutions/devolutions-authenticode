@@ -404,7 +404,7 @@ namespace Devolutions.Authenticode.PowerShell
             }
         }
 
-        private string _hashAlgorithm = null;
+        private string _hashAlgorithm = "SHA256";
 
         /// <summary>
         /// Property that sets force parameter.
