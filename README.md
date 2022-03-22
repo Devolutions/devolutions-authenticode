@@ -11,7 +11,7 @@ $params = @{
     Subject = 'CN=ZipAuthenticode'
     Type = 'CodeSigning'
     CertStoreLocation = 'cert:\CurrentUser\My'
-    HashAlgorithm = 'sha256'
+    HashAlgorithm = 'SHA256'
 }
 $cert = New-SelfSignedCertificate @params
 ```
@@ -37,15 +37,99 @@ Thumbprint                                Subject              EnhancedKeyUsageL
 6256DFDA7528DF20730950A4D9DC0727CE7EA404  CN=ZipAuthenticode   Code Signing
 ```
 
-## PowerShell Module
+## Private Certificate Authority
 
-Build the PowerShell module and import it:
+Create a test certificate authority:
 
 ```powershell
-git clone https://github.com/Devolutions/devolutions-authenticode
-cd devolutions-authenticode/PowerShell
-.\build.ps1
-Import-Module .\Devolutions.Authenticode
+$NotBefore = Get-Date
+$BasicConstraints = "2.5.29.19={text}ca=true&pathLength=1"
+$ExtendedKeyUsage = "2.5.29.37={text}1.3.6.1.5.5.7.3.3,1.3.6.1.5.5.7.3.8"
+$TextExtension = @($BasicConstraints,$ExtendedKeyUsage)
+$params = @{
+    Subject = 'CN=Devolutions Authenticode Test CA'
+    CertStoreLocation = 'cert:\CurrentUser\My'
+    KeyExportPolicy = 'Exportable'
+    KeyLength = 2048
+    KeyUsage = 'CertSign','DigitalSignature'
+    KeyUsageProperty = 'All'
+    KeyAlgorithm = 'RSA'
+    HashAlgorithm = 'SHA256'
+    TextExtension = $TextExtension
+    NotBefore = $NotBefore
+    NotAfter = $NotBefore.AddYears(10)
+}
+$RootCA = New-SelfSignedCertificate @params
+$RootPassword = ConvertTo-SecureString "Root123!" -AsPlainText -Force
+$RootCA | Export-Certificate -FilePath "~\Documents\authenticode-test-ca.crt"
+$RootCA | Export-PfxCertificate -FilePath "~\Documents\authenticode-test-ca.pfx" -Password $RootPassword
+```
+
+Create a test code signing certificate signed by the test certificate authority:
+
+```powershell
+$NotBefore = Get-Date
+$RootCA = @(Get-ChildItem cert:\CurrentUser\My | Where-Object { $_.Subject -eq "CN=Devolutions Authenticode Test CA" })[0]
+$params = @{
+    Signer = $RootCA
+    Type = 'CodeSigning'
+    Subject = 'CN=Test Code Signing Certificate'
+    CertStoreLocation = 'cert:\CurrentUser\My'
+    KeyExportPolicy = 'Exportable'
+    KeyLength = 2048
+    KeyUsage = 'DigitalSignature'
+    KeyAlgorithm = 'RSA'
+    HashAlgorithm = 'SHA256'
+    NotBefore = $NotBefore
+    NotAfter = $NotBefore.AddYears(5)
+}
+$CodeSignCert = New-SelfSignedCertificate @params
+$CodeSignPassword = ConvertTo-SecureString "CodeSign123!" -AsPlainText -Force
+$CodeSignCert | Export-PfxCertificate -FilePath "~\Documents\authenticode-test-cert.pfx" -Password $CodeSignPassword
+```
+
+Remove the test certificate authority and its private key from the current user certificate store. You can always re-import it later to create new code signing certificates:
+
+```powershell
+@(Get-ChildItem cert:\CurrentUser\My | Where-Object { $_.Subject -eq "CN=Devolutions Authenticode Test CA" })[0] | Remove-Item
+$RootCA | Remove-Item
+```
+
+If you need to sign a new code signing certificate, you will need to re-import the certificate authority and its private key:
+
+```powershell
+$RootPassword = ConvertTo-SecureString "Root123!" -AsPlainText -Force
+$RootCA = Import-PfxCertificate -FilePath "~\Documents\authenticode-test-ca.pfx" -CertStoreLocation 'cert:\CurrentUser\My' -Password $RootPassword
+```
+
+Import the test certificate authority without the private key into the machine trusted root CAs using an elevated shell to trust it:
+
+```powershell
+Import-Certificate -FilePath "~\Documents\authenticode-test-ca.crt" -CertStoreLocation "cert:\LocalMachine\Root"
+```
+
+Obtain a reference to the code siging certificate from the current user store:
+
+```powershell
+PS C:\> $cert = @(Get-ChildItem cert:\CurrentUser\My -CodeSigning | Where-Object { $_.Subject -eq "CN=Test Code Signing Certificate" })[0]
+PS C:\> $cert
+
+   PSParentPath: Microsoft.PowerShell.Security\Certificate::CurrentUser\My
+
+Thumbprint                                Subject              EnhancedKeyUsageList
+----------                                -------              --------------------
+F9BEF87E6458FD90C7E22B27D6FF0221559A590F  CN=Test Code Signin… Code Signing
+```
+
+That's it!
+
+## PowerShell Module
+
+Install the Devolutions.Authenticode PowerShell module and import it:
+
+```powershell
+Install-Module -Name Devolutions.Authenticode
+Import-Module Devolutions.Authenticode
 ```
 
 The `Get-ZipAuthenticodeSignature` and `Set-ZipAuthenticodeSignature` PowerShell cmdlets should now be available.
