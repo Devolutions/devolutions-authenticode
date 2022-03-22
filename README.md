@@ -2,6 +2,32 @@
 
 Do you already sign .msi, .exe, .dll, .ps1 and .cab files with Authenticode and just wish there was a simple way to make it work for .zip files? Look no further! Taking inspiration from the [zipsign](https://github.com/falk-werner/zipsign) project, we have adapted Authenticode to the zip file format in a way that leverages the existing Windows APIs for signing and validation.
 
+## Bootstrap Test CA
+
+Don't want to bother creating your own test certificate authority? Just bootstrap the test certificate authority and code signing certificate we have prepared. Please keep in mind that it is strictly meant for testing and should not be used in production. Run the following in an elevated shell:
+
+```powershell
+$AuthenticodePath = "~\Documents\Authenticode"
+New-Item -ItemType Directory -Path $AuthenticodePath -ErrorAction SilentlyContinue | Out-Null
+
+$TestCertsUrl = "https://raw.githubusercontent.com/Devolutions/devolutions-authenticode/master/data/certs"
+@('authenticode-test-ca.crt','authenticode-test-cert.pfx') | ForEach-Object {
+    Invoke-WebRequest -Uri "$TestCertsUrl/$_" -OutFile $AuthenticodePath\$_
+}
+
+Import-Certificate -FilePath "$AuthenticodePath\authenticode-test-ca.crt" -CertStoreLocation "cert:\LocalMachine\Root"
+
+$CodeSignPassword = ConvertTo-SecureString "CodeSign123!" -AsPlainText -Force
+Import-PfxCertificate -FilePath "$AuthenticodePath\authenticode-test-cert.pfx" -CertStoreLocation 'cert:\CurrentUser\My' -Password $CodeSignPassword
+```
+
+Code signing operations with most tools require that the CA be present in the machine trusted root certificate authorities. Run the following in an elevated shell to remove all test certificates once you no longer need them:
+
+```powershell
+Get-ChildItem cert:\LocalMachine\Root | Where-Object { $_.Subject -eq "CN=Devolutions Authenticode Test CA" } | Remove-Item
+Get-ChildItem cert:\CurrentUser\My | Where-Object { $_.Subject -eq "CN=Test Code Signing Certificate" } | Remove-Item
+```
+
 ## Self-signed Certificate
 
 Start by creating a simple self-signed certificate for Authenticode code signing:
