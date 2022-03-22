@@ -43,15 +43,19 @@ Create a test certificate authority:
 
 ```powershell
 $NotBefore = Get-Date
+$BasicConstraints = "2.5.29.19={text}ca=true&pathLength=1"
+$ExtendedKeyUsage = "2.5.29.37={text}1.3.6.1.5.5.7.3.3,1.3.6.1.5.5.7.3.8"
+$TextExtension = @($BasicConstraints,$ExtendedKeyUsage)
 $params = @{
     Subject = 'CN=Devolutions Authenticode Test CA'
     CertStoreLocation = 'cert:\CurrentUser\My'
     KeyExportPolicy = 'Exportable'
     KeyLength = 2048
-    KeyUsage = 'CertSign','CRLSign','DigitalSignature'
+    KeyUsage = 'CertSign','DigitalSignature'
     KeyUsageProperty = 'All'
     KeyAlgorithm = 'RSA'
     HashAlgorithm = 'SHA256'
+    TextExtension = $TextExtension
     NotBefore = $NotBefore
     NotAfter = $NotBefore.AddYears(10)
 }
@@ -77,7 +81,7 @@ $params = @{
     KeyAlgorithm = 'RSA'
     HashAlgorithm = 'SHA256'
     NotBefore = $NotBefore
-    NotAfter = $NotBefore.AddYears(2)
+    NotAfter = $NotBefore.AddYears(5)
 }
 $CodeSignCert = New-SelfSignedCertificate @params
 $CodeSignPassword = ConvertTo-SecureString "CodeSign123!" -AsPlainText -Force
@@ -87,7 +91,7 @@ $CodeSignCert | Export-PfxCertificate -FilePath "~\Documents\authenticode-test-c
 Remove the test certificate authority and its private key from the current user certificate store. You can always re-import it later to create new code signing certificates:
 
 ```powershell
-$RootCA = @(Get-ChildItem cert:\CurrentUser\My | Where-Object { $_.Subject -eq "CN=Devolutions Authenticode Test CA" })[0]
+@(Get-ChildItem cert:\CurrentUser\My | Where-Object { $_.Subject -eq "CN=Devolutions Authenticode Test CA" })[0] | Remove-Item
 $RootCA | Remove-Item
 ```
 
