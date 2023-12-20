@@ -285,5 +285,5 @@ jobs:
           if ($DryRun) {
             Write-Host "Dry Run: skipping GitHub release!"
           } else {
-            & gh release create $ReleaseTag --repo $Repository --title $ReleaseTitle ./*
+            & gh release create $ReleaseTag --repo $Repository --title $ReleaseTitle (Get-Item *)
           }
