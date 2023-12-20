@@ -12,6 +12,7 @@ namespace Devolutions.Authenticode
     public class ZipFile
     {
         // https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT
+        // https://games.greggman.com/game/zip-rant/
 
         public const uint ZipLocalFileHeaderSignature = 0x04034b50;
         public const uint ZipLocalFileHeaderSize = 30;
@@ -156,7 +157,7 @@ namespace Devolutions.Authenticode
             }
         }
 
-        private long FindZipFooterOffset(byte[] data)
+        private long FindZipFooterOffsetFromStart(byte[] data)
         {
             unsafe
             {
@@ -210,9 +211,49 @@ namespace Devolutions.Authenticode
                         }
                     }
 
-                    throw new InvalidDataException("Count not parse zip file");
+                    throw new InvalidDataException("Could not parse zip file");
                 }
             }
+        }
+
+        private long FindZipFooterOffsetFromEnd(byte[] data)
+        {
+            unsafe
+            {
+                fixed (byte* ptr = data)
+                {
+                    long size = data.Length;
+
+                    if (size < ZipEndOfCentralDirHeaderSize)
+                    {
+                        throw new InvalidDataException("Could not parse zip file (too short)");
+                    }
+
+                    long offset = size - ZipEndOfCentralDirHeaderSize;
+                    long finish = Math.Max(0, size - 65536 - 22);
+
+                    while (offset > finish)
+                    {
+                        uint hdrSignature = *((uint*)&ptr[offset]);
+                        
+                        if (hdrSignature == ZipEndOfCentralDirHeaderSignature)
+                        {
+                            return offset;
+                        }
+
+                        offset--;
+                    }
+
+                    throw new InvalidDataException("Could not parse zip file (no end of central directory)");
+                }
+            }
+        }
+
+        private long FindZipFooterOffset(byte[] data)
+        {
+            // scanning for end of central directory from the end of the file is safer
+            // zip files produced by 'tar -C dir -acf file.zip *' won't work from start
+            return FindZipFooterOffsetFromEnd(data);
         }
 
         private string? GetFileComment(byte[] data)
