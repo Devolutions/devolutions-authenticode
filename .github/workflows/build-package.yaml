@@ -78,7 +78,13 @@ jobs:
 
     steps:
       - name: Check out ${{ github.repository }}
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
+
+      - name: Configure runner
+        shell: pwsh
+        run: |
+          New-Item .\output -ItemType Directory -ErrorAction SilentlyContinue | Out-Null
+          New-Item .\package -ItemType Directory -ErrorAction SilentlyContinue | Out-Null
 
       - name: Install code signing tools
         run: |
@@ -111,7 +117,14 @@ jobs:
       - name: Build Nuget package
         shell: pwsh
         run: |
-          & dotnet build ".\dotnet\Devolutions.Authenticode" -f netstandard2.0 -c Release -o ".\package"
+          & dotnet build ".\dotnet\Devolutions.Authenticode" -f netstandard2.0 -c Release -o ".\output"
+          Move-Item .\output\*.nupkg .\package -Force
+
+      - name: Build PowerShell module
+        shell: pwsh
+        run: |
+          .\PowerShell\build.ps1
+          .\PowerShell\package.ps1
 
       - name: Code sign nuget contents
         shell: pwsh
@@ -135,6 +148,31 @@ jobs:
           }
           Remove-Item $PackedFile -ErrorAction SilentlyContinue | Out-Null
           Compress-Archive -Path "$UnpackedDir\*" -Destination $PackedFile -CompressionLevel Optimal
+          Remove-Item $UnpackedDir -Recurse -Force | Out-Null
+
+      - name: Code sign PowerShell nuget contents
+        shell: pwsh
+        run: |
+          Set-PSDebug -Trace 1
+          $NugetBaseName = $(Get-Item ./PowerShell/*.nupkg).BaseName
+          $PackedFile = "./PowerShell/${NugetBaseName}.nupkg"
+          $UnpackedDir = "./PowerShell/${NugetBaseName}"
+          $OutputDirectory = $(Get-Item $PackedFile).Directory.FullName
+          Expand-Archive -Path $PackedFile -Destination $UnpackedDir -Force
+          $Params = @('sign',
+            '-kvt', '${{ secrets.AZURE_TENANT_ID }}',
+            '-kvu', '${{ secrets.CODE_SIGNING_KEYVAULT_URL }}',
+            '-kvi', '${{ secrets.CODE_SIGNING_CLIENT_ID }}',
+            '-kvs', '${{ secrets.CODE_SIGNING_CLIENT_SECRET }}',
+            '-kvc', '${{ secrets.CODE_SIGNING_CERTIFICATE_NAME }}',
+            '-tr', '${{ vars.CODE_SIGNING_TIMESTAMP_SERVER }}',
+            '-v')
+          Get-ChildItem "$UnpackedDir" -Include @("*.ps1","*.psd1","*.psm1","*.dll") -Recurse | ForEach-Object {
+            AzureSignTool @Params $_.FullName
+          }
+          Remove-Item $PackedFile -ErrorAction SilentlyContinue | Out-Null
+          Compress-Archive -Path "$UnpackedDir\*" -Destination $PackedFile -CompressionLevel Optimal
+          Remove-Item $UnpackedDir -Recurse -Force | Out-Null
 
       - name: Code sign nuget package
         if: ${{ fromJSON(inputs.sign-nuget) == true }}
@@ -151,21 +189,29 @@ jobs:
             '-v')
           & NuGetKeyVaultSignTool @Params
 
-      - name: Build PowerShell module
+      - name: Code sign PowerShell nuget package
+        if: ${{ fromJSON(inputs.sign-nuget) == true }}
         shell: pwsh
         run: |
-          .\PowerShell\build.ps1
-          .\PowerShell\package.ps1
-          Copy-Item $PSNugetPackage (Join-Path ".\package" $PSNugetPackage.Name.Replace('.nupkg','-ps.nupkg'))
+          $NugetPackage = (Get-Item ".\PowerShell\*.nupkg" | Select-Object -First 1) | Resolve-Path -Relative
+          $Params = @('sign', $NugetPackage,
+            '-kvt', '${{ secrets.AZURE_TENANT_ID }}',
+            '-kvu', '${{ secrets.CODE_SIGNING_KEYVAULT_URL }}',
+            '-kvi', '${{ secrets.CODE_SIGNING_CLIENT_ID }}',
+            '-kvs', '${{ secrets.CODE_SIGNING_CLIENT_SECRET }}',
+            '-kvc', '${{ secrets.CODE_SIGNING_CERTIFICATE_NAME }}',
+            '-tr', '${{ vars.CODE_SIGNING_TIMESTAMP_SERVER }}',
+            '-v')
+          & NuGetKeyVaultSignTool @Params
 
       - name: Upload Nuget package
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: nuget-package
           path: package/*.nupkg
 
       - name: Upload PowerShell module
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: pwsh-module
           path: |
@@ -210,6 +256,9 @@ jobs:
           } else {
             & 'dotnet' $PushArgs
           }
+
+          $PSNugetPackage = (Get-Item ./PowerShell/*.nupkg)
+          Copy-Item $PSNugetPackage (Join-Path ".\package" $PSNugetPackage.Name.Replace('.nupkg','-ps.nupkg')) -Force
 
       - name: Create GitHub release
         if: ${{ fromJSON(inputs.skip-publish) == false }}
