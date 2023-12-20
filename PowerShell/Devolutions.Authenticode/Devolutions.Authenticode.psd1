@@ -10,7 +10,7 @@
     RootModule = 'Devolutions.Authenticode.psm1'
     
     # Version number of this module.
-    ModuleVersion = '2022.3.22'
+    ModuleVersion = '1.0.0.0'
     
     # Supported PSEditions
     CompatiblePSEditions = 'Desktop', 'Core'
@@ -126,3 +126,4 @@
     # DefaultCommandPrefix = ''
     
     }
+

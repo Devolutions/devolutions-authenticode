@@ -1,0 +1,240 @@
+name: build package
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'release version'
+        default: "latest"
+        required: true
+      sign-nuget:
+        description: 'Sign nuget package'
+        required: true
+        type: boolean
+        default: false
+      skip-publish:
+        description: 'Skip publishing'
+        required: true
+        type: boolean
+        default: false
+      dry-run:
+        description: 'Dry run (simulate)'
+        required: true
+        type: boolean
+        default: true
+
+jobs:
+  preflight:
+    name: preflight
+    runs-on: ubuntu-22.04
+    outputs:
+      package-env: ${{ steps.info.outputs.package-env }}
+      package-version: ${{ steps.info.outputs.package-version }}
+      dry-run: ${{ steps.info.outputs.dry-run }}
+
+    steps:
+      - name: Package information
+        id: info
+        shell: pwsh
+        run: |
+          $IsMasterBranch = ('${{ github.ref_name }}' -eq 'master')
+          $IsScheduledJob = ('${{ github.event_name }}' -eq 'schedule')
+          $DryRun = [System.Boolean]::Parse('${{ inputs.dry-run }}')
+
+          $PackageEnv = if ($IsMasterBranch -And -Not $IsScheduledJob) {
+            "publish-prod"
+          } else {
+            "publish-test"
+          }
+          
+          if (-Not $IsMasterBranch) {
+            $DryRun = $true # force dry run when not on master branch
+          }
+          if ($IsScheduledJob) {
+            $DryRun = $true # force dry run for scheduled runs
+          }
+
+          $PackageVersion = '${{ github.event.inputs.version }}'
+          if ([string]::IsNullOrEmpty($PackageVersion) -or $PackageVersion -eq 'latest') {
+            $PackageVersion = (Get-Date -Format "yyyy.MM.dd") + ".0"
+          }
+
+          if ($PackageVersion -NotMatch '^\d+\.\d+\.\d+\.\d+$') {
+            throw "invalid version format: $PackageVersion, expected: 1.2.3.4"
+          }
+
+          echo "package-env=$PackageEnv" >> $Env:GITHUB_OUTPUT
+          echo "package-version=$PackageVersion" >> $Env:GITHUB_OUTPUT
+          echo "dry-run=$($DryRun.ToString().ToLower())" >> $Env:GITHUB_OUTPUT
+
+          echo "::notice::Version: $PackageVersion"
+          echo "::notice::DryRun: $DryRun"
+
+  build:
+    name: build
+    runs-on: windows-2022
+    needs: [preflight]
+    environment: ${{ needs.preflight.outputs.package-env }}
+
+    steps:
+      - name: Check out ${{ github.repository }}
+        uses: actions/checkout@v2
+
+      - name: Install code signing tools
+        run: |
+          dotnet tool install --global AzureSignTool
+          dotnet tool install --global NuGetKeyVaultSignTool
+
+          # trust test code signing CA
+          $TestCertsUrl = "https://raw.githubusercontent.com/Devolutions/devolutions-authenticode/master/data/certs"
+          Invoke-WebRequest -Uri "$TestCertsUrl/authenticode-test-ca.crt" -OutFile ".\authenticode-test-ca.crt"
+          Import-Certificate -FilePath ".\authenticode-test-ca.crt" -CertStoreLocation "cert:\LocalMachine\Root"
+          Remove-Item ".\authenticode-test-ca.crt" -ErrorAction SilentlyContinue | Out-Null
+
+      - name: Set package version
+        shell: pwsh
+        run: |
+          $PackageVersion = '${{ needs.preflight.outputs.package-version }}'
+          Get-ChildItem "dotnet\**\*.csproj" | ForEach-Object {
+            $filePath = $_.FullName
+            $fileContent = Get-Content $filePath -Raw
+            $fileContent = $fileContent -Replace '(<Version>).*?(</Version>)', "<Version>$PackageVersion</Version>"
+            Set-Content -Path $filePath -Value $fileContent -Encoding UTF8
+          }
+          Get-ChildItem "PowerShell\**\*.psd1" | ForEach-Object {
+            $filePath = $_.FullName
+            $fileContent = Get-Content $filePath -Raw
+            $fileContent = $fileContent -Replace "(ModuleVersion\s*=\s*').*?(')", "ModuleVersion = '$PackageVersion'"
+            Set-Content -Path $filePath -Value $fileContent -Encoding UTF8
+          }
+
+      - name: Build Nuget package
+        shell: pwsh
+        run: |
+          & dotnet build ".\dotnet\Devolutions.Authenticode" -f netstandard2.0 -c Release -o ".\package"
+
+      - name: Code sign nuget contents
+        shell: pwsh
+        run: |
+          Set-PSDebug -Trace 1
+          $NugetBaseName = $(Get-Item ./package/*.nupkg).BaseName
+          $PackedFile = "./package/${NugetBaseName}.nupkg"
+          $UnpackedDir = "./package/${NugetBaseName}"
+          $OutputDirectory = $(Get-Item $PackedFile).Directory.FullName
+          Expand-Archive -Path $PackedFile -Destination $UnpackedDir -Force
+          $Params = @('sign',
+            '-kvt', '${{ secrets.AZURE_TENANT_ID }}',
+            '-kvu', '${{ secrets.CODE_SIGNING_KEYVAULT_URL }}',
+            '-kvi', '${{ secrets.CODE_SIGNING_CLIENT_ID }}',
+            '-kvs', '${{ secrets.CODE_SIGNING_CLIENT_SECRET }}',
+            '-kvc', '${{ secrets.CODE_SIGNING_CERTIFICATE_NAME }}',
+            '-tr', '${{ vars.CODE_SIGNING_TIMESTAMP_SERVER }}',
+            '-v')
+          Get-ChildItem "$UnpackedDir\lib" -Include @("*.dll") -Recurse | ForEach-Object {
+            AzureSignTool @Params $_.FullName
+          }
+          Remove-Item $PackedFile -ErrorAction SilentlyContinue | Out-Null
+          Compress-Archive -Path "$UnpackedDir\*" -Destination $PackedFile -CompressionLevel Optimal
+
+      - name: Code sign nuget package
+        if: ${{ fromJSON(inputs.sign-nuget) == true }}
+        shell: pwsh
+        run: |
+          $NugetPackage = (Get-Item ".\package\*.nupkg" | Select-Object -First 1) | Resolve-Path -Relative
+          $Params = @('sign', $NugetPackage,
+            '-kvt', '${{ secrets.AZURE_TENANT_ID }}',
+            '-kvu', '${{ secrets.CODE_SIGNING_KEYVAULT_URL }}',
+            '-kvi', '${{ secrets.CODE_SIGNING_CLIENT_ID }}',
+            '-kvs', '${{ secrets.CODE_SIGNING_CLIENT_SECRET }}',
+            '-kvc', '${{ secrets.CODE_SIGNING_CERTIFICATE_NAME }}',
+            '-tr', '${{ vars.CODE_SIGNING_TIMESTAMP_SERVER }}',
+            '-v')
+          & NuGetKeyVaultSignTool @Params
+
+      - name: Build PowerShell module
+        shell: pwsh
+        run: |
+          .\PowerShell\build.ps1
+          .\PowerShell\package.ps1
+          Copy-Item $PSNugetPackage (Join-Path ".\package" $PSNugetPackage.Name.Replace('.nupkg','-ps.nupkg'))
+
+      - name: Upload Nuget package
+        uses: actions/upload-artifact@v2
+        with:
+          name: nuget-package
+          path: package/*.nupkg
+
+      - name: Upload PowerShell module
+        uses: actions/upload-artifact@v2
+        with:
+          name: pwsh-module
+          path: |
+            PowerShell/*.nupkg
+
+      - name: Publish to nuget.org
+        if: ${{ fromJSON(inputs.skip-publish) == false }}
+        shell: pwsh
+        run: |
+          $DryRun = [System.Boolean]::Parse('${{ needs.preflight.outputs.dry-run }}')
+          $NugetPackage = (Get-Item ./package/*.nupkg) | Resolve-Path -Relative
+
+          $PushArgs = @(
+            'nuget', 'push', "$NugetPackage",
+            '--api-key', '${{ secrets.NUGET_API_KEY }}',
+            '--source', 'https://api.nuget.org/v3/index.json',
+            '--skip-duplicate'
+          )
+          Write-Host "dotnet $($PushArgs -Join ' ')"
+          if ($DryRun) {
+            Write-Host "Dry Run: skipping nuget.org publishing!"
+          } else {
+            & 'dotnet' $PushArgs
+          }
+
+      - name: Publish to PSGallery
+        if: ${{ fromJSON(inputs.skip-publish) == false }}
+        shell: pwsh
+        run: |
+          $DryRun = [System.Boolean]::Parse('${{ needs.preflight.outputs.dry-run }}')
+          $NugetPackage = (Get-Item ./PowerShell/*.nupkg) | Resolve-Path -Relative
+
+          $PushArgs = @(
+            'nuget', 'push', "$NugetPackage",
+            '--api-key', '${{ secrets.PSGALLERY_NUGET_API_KEY }}',
+            '--source', 'https://www.powershellgallery.com/api/v2/package',
+            '--skip-duplicate'
+          )
+          Write-Host "dotnet $($PushArgs -Join ' ')"
+          if ($DryRun) {
+            Write-Host "Dry Run: skipping PSGallery publishing!"
+          } else {
+            & 'dotnet' $PushArgs
+          }
+
+      - name: Create GitHub release
+        if: ${{ fromJSON(inputs.skip-publish) == false }}
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        working-directory: package
+        run: |
+          $PackageVersion = '${{ needs.preflight.outputs.package-version }}'
+          $DryRun = [System.Boolean]::Parse('${{ needs.preflight.outputs.dry-run }}')
+
+          $HashPath = 'checksums'
+          $Files = Get-Item * | % { Get-FileHash -Algorithm SHA256 $_.FullName }
+          $Files | % { "$($_.Hash)  $(Split-Path $_.Path -Leaf)" } | Out-File -FilePath $HashPath -Append -Encoding ASCII
+
+          echo "::group::checksums"
+          Get-Content $HashPath
+          echo "::endgroup::"
+
+          $ReleaseTag = "v$PackageVersion"
+          $ReleaseTitle = "Devolutions.Authenticode v${PackageVersion}"
+          $Repository = $Env:GITHUB_REPOSITORY
+
+          if ($DryRun) {
+            Write-Host "Dry Run: skipping GitHub release!"
+          } else {
+            & gh release create $ReleaseTag --repo $Repository --title $ReleaseTitle ./*
+          }
