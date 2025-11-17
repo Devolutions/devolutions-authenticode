@@ -46,7 +46,7 @@ jobs:
           } else {
             "publish-test"
           }
-          
+
           if (-Not $IsMasterBranch) {
             $DryRun = $true # force dry run when not on master branch
           }
@@ -75,6 +75,8 @@ jobs:
     runs-on: windows-2022
     needs: [preflight]
     environment: ${{ needs.preflight.outputs.package-env }}
+    permissions:
+      id-token: write
 
     steps:
       - name: Check out ${{ github.repository }}
@@ -217,6 +219,13 @@ jobs:
           path: |
             PowerShell/*.nupkg
 
+      - name: NuGet login (OIDC)
+        if: ${{ fromJSON(inputs.skip-publish) == false }}
+        id: nuget-login
+        uses: NuGet/login@v1
+        with:
+          user: ${{ secrets.NUGET_BOT_USERNAME }}
+
       - name: Publish to nuget.org
         if: ${{ fromJSON(inputs.skip-publish) == false }}
         shell: pwsh
@@ -226,7 +235,7 @@ jobs:
 
           $PushArgs = @(
             'nuget', 'push', "$NugetPackage",
-            '--api-key', '${{ secrets.NUGET_API_KEY }}',
+            '--api-key', '${{ steps.nuget-login.outputs.NUGET_API_KEY }}',
             '--source', 'https://api.nuget.org/v3/index.json',
             '--skip-duplicate'
           )
