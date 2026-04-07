@@ -80,7 +80,7 @@ jobs:
 
     steps:
       - name: Check out ${{ github.repository }}
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Configure runner
         shell: pwsh
@@ -207,13 +207,13 @@ jobs:
           & NuGetKeyVaultSignTool @Params
 
       - name: Upload Nuget package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: nuget-package
           path: package/*.nupkg
 
       - name: Upload PowerShell module
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pwsh-module
           path: |
